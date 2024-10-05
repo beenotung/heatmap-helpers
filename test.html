@@ -29,7 +29,21 @@
         build_heatmap({
           canvas,
           context,
-          slideRatio: 0.8,
+          slide_ratio: 0.8,
+          // max_grid_height: 100,
+          // max_grid_width: 100,
+          calc_score: () => {
+            let r = Math.random()
+            let chance = 0.01
+            let gap = 0.05
+            if (r < chance) {
+              return Math.random() * gap
+            }
+            if (r > 1 - chance) {
+              return 1 - Math.random() * gap
+            }
+            return 0.5 + (Math.random() * 2 - 1) * gap
+          },
         })
       }
 

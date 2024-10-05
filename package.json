@@ -25,5 +25,8 @@
   "types": "dist/index.d.ts",
   "files": [
     "dist"
-  ]
+  ],
+  "dependencies": {
+    "heatmap-values": "^1.0.2"
+  }
 }

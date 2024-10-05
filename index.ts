@@ -1,4 +1,10 @@
-let { abs, random, round, floor, ceil, max, min, sqrt } = Math
+import { generate_heatmap_values, heatmap_schemes } from 'heatmap-values'
+
+let heatmap_values = generate_heatmap_values(
+  heatmap_schemes.red_transparent_blue,
+)
+
+let { abs, round, floor, ceil, max } = Math
 
 type Rect = { width: number; height: number }
 
@@ -111,65 +117,113 @@ export function restore_rect(
   }
 }
 
+function calc_slide(total_size: number, slide: number) {
+  slide = ceil(slide)
+  let count = ceil((total_size - slide) / slide)
+  slide = ceil((total_size - slide) / count)
+  return slide
+}
+
 let slide_interval = 0
+
+export type HeatmapContext = {
+  canvas: HTMLCanvasElement
+  context: CanvasRenderingContext2D
+  image_data: ImageData
+}
 
 export async function build_heatmap(args: {
   canvas: HTMLCanvasElement
   context?: CanvasRenderingContext2D
-  imageData?: ImageData
-  /** @description default 0.5 */
-  slideRatio?: number
+  image_data?: ImageData
+  /** @description default `0.5` */
+  slide_ratio?: number
+  /** @description default `ceil(canvas.height * 0.5)` */
+  max_grid_height?: number
+  /** @description default `ceil(canvas.width * 0.5)` */
+  max_grid_width?: number
+  /** @returns 0..1 */
+  calc_score: (context: HeatmapContext) => number | Promise<number>
 }) {
   let canvas = args.canvas
   let context = args.context || canvas.getContext('2d')!
-  let imageData =
-    args.imageData || context.getImageData(0, 0, canvas.width, canvas.height)
-  let slideRatio = args.slideRatio ?? 0.5
+  let image_data =
+    args.image_data || context.getImageData(0, 0, canvas.width, canvas.height)
+  let slideRatio = args.slide_ratio ?? 0.5
 
-  let w = ceil(canvas.width / 50)
-  let h = ceil(canvas.height / 50)
+  let heatmap_scores: {
+    x: number
+    y: number
+    w: number
+    h: number
+    score: number
+  }[] = []
 
-  // let x = 250
-  // let y = 125
-  // context.lineWidth = 1
-  // context.strokeStyle = 'red'
-  // context.fillStyle = 'yellow'
-  // context.rect(x, y, w, h)
-  // context.stroke()
+  let heatmap_context: HeatmapContext = {
+    canvas,
+    context,
+    image_data,
+  }
 
-  let x_slide = floor(w * slideRatio)
-  let y_slide = floor(h * slideRatio)
+  async function tick(x: number, y: number, w: number, h: number) {
+    let backup = occlude_rect(image_data, x, y, w, h)
+    context.putImageData(image_data, 0, 0)
+    let score = await args.calc_score(heatmap_context)
+    heatmap_scores.push({ x, y, w, h, score })
+    await sleep(slide_interval)
+    restore_rect(image_data, backup, x, y, w, h)
+    context.putImageData(image_data, 0, 0)
+  }
 
-  let last_x = false
-  let last_y = false
-  slide: for (let y = 0; y < canvas.height; ) {
-    for (let x = 0; x < canvas.width; ) {
-      let backup = occlude_rect(imageData, x, y, w, h)
-      context.putImageData(imageData, 0, 0)
-      await sleep(slide_interval)
-      // restore_rect(imageData, backup, x, y, w, h)
-      context.putImageData(imageData, 0, 0)
+  function draw_heatmap() {
+    console.log('draw heatmap:', heatmap_scores)
+    for (let { x, y, w, h, score } of heatmap_scores) {
+      let value = round(score * 255)
+      let color = heatmap_values[value]
+      context.fillStyle = `rgba(${color})`
+      context.fillRect(x, y, w, h)
+      console.log('fill', { x, y, w, h, color: context.fillStyle })
+    }
+  }
 
-      if (x + w == canvas.width) {
-        x = 0
-        if (y + h == canvas.height) {
-          last_y = true
-          if (last_x && last_y) {
-            break slide
-          }
+  // TODO fine-grain explore area of interest, instead of full range scanning
+  async function loop_slide(w: number, h: number) {
+    async function loop_x(y: number) {
+      for (let x = 0; x + w <= canvas.width; ) {
+        await tick(x, y, w, h)
+        x += x_slide
+        if (x + w > canvas.width) {
+          x = canvas.width - w
+          await tick(x, y, w, h)
+          break
         }
-        y += y_slide
-        if (y + h > canvas.height) {
-          y = canvas.height - h
-        }
-        continue
-      }
-      x += x_slide
-      if (x + w > canvas.width) {
-        x = canvas.width - w
-        last_x = true
       }
     }
+    let y_slide = calc_slide(canvas.height, h * slideRatio)
+    let x_slide = calc_slide(canvas.width, w * slideRatio)
+    for (let y = 0; y + h <= canvas.height; ) {
+      await loop_x(y)
+      y += y_slide
+      if (y + h > canvas.height) {
+        y = canvas.height - h
+        await loop_x(y)
+        break
+      }
+    }
+  }
+
+  let w = ceil(args.max_grid_height || canvas.width / 2)
+  let h = ceil(args.max_grid_width || canvas.height / 2)
+  // await loop_slide(w, h)
+  // draw_heatmap()
+  for (let i = 0; i < 100; i++) {
+    await loop_slide(w, h)
+    draw_heatmap()
+    image_data = context.getImageData(0, 0, canvas.width, canvas.height)
+    heatmap_scores.length = 0
+    await sleep(1)
+    w = ceil(w * 0.9)
+    h = ceil(h * 0.9)
   }
 }
 
