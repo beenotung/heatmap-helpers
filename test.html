@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style>
+      img {
+        border: 5px solid blue;
+      }
+      canvas {
+        border: 5px solid red;
+      }
+    </style>
+  </head>
+  <body>
+    <img src="singer.jpg" id="image" />
+    <canvas id="canvas"></canvas>
+    <script src="bundle.js"></script>
+    <script>
+      let { floor, ceil, max, sqrt } = Math
+      Object.assign(window, heatmap_helpers)
+      image.onload = () => {
+        let context = canvas.getContext('2d')
+        canvas.width = image.naturalWidth
+        canvas.height = image.naturalHeight
+        context.drawImage(image, 0, 0)
+
+        build_heatmap({
+          canvas,
+          context,
+          slideRatio: 0.8,
+        })
+      }
+
+      /* end */
+    </script>
+  </body>
+</html>
