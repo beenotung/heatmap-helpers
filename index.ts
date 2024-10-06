@@ -79,7 +79,7 @@ function get_occlusion_weights(w: number, h: number): number[] {
     let weight_y = ((dy - h_2) / h_2) ** 2
     for (let dx = 0; dx < w; dx++) {
       let weight_x = ((dx - w_2) / w_2) ** 2
-      let weight = (1 - max(weight_x, weight_y)) * 5
+      let weight = (1 - max(weight_x, weight_y)) * 2
       weights[i] = weight
       i++
     }
