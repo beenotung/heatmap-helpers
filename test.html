@@ -15,20 +15,26 @@
   </head>
   <body>
     <img src="singer.jpg" id="image" />
-    <canvas id="canvas"></canvas>
+    <div style="position: relative">
+      <canvas id="image_canvas"></canvas>
+      <canvas id="heatmap_canvas" style="position: absolute; inset: 0"></canvas>
+    </div>
     <script src="bundle.js"></script>
     <script>
       let { floor, ceil, max, sqrt } = Math
       Object.assign(window, heatmap_helpers)
       image.onload = () => {
-        let context = canvas.getContext('2d')
-        canvas.width = image.naturalWidth
-        canvas.height = image.naturalHeight
+        let context = image_canvas.getContext('2d')
+        image_canvas.width = image.naturalWidth
+        image_canvas.height = image.naturalHeight
         context.drawImage(image, 0, 0)
 
+        heatmap_canvas.width = image.naturalWidth
+        heatmap_canvas.height = image.naturalHeight
+
         build_heatmap({
-          canvas,
-          context,
+          image_canvas,
+          heatmap_canvas,
           slide_ratio: 0.8,
           // max_grid_height: 100,
           // max_grid_width: 100,
