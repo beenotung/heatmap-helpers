@@ -60,8 +60,37 @@ export function pick_occlusion_color(mean_color: Color): number {
   return 127
 }
 
+// w -> h -> (weights)
+let occlusion_weights: number[][][] = []
+
+function get_occlusion_weights(w: number, h: number): number[] {
+  if (!(w in occlusion_weights)) {
+    occlusion_weights[w] = []
+  }
+  let h_weights = occlusion_weights[w]
+  if (h in h_weights) {
+    return h_weights[h]
+  }
+  let weights: number[] = new Array(w * h)
+  let h_2 = h / 2
+  let w_2 = w / 2
+  let i = 0
+  for (let dy = 0; dy < h; dy++) {
+    let weight_y = ((dy - h_2) / h_2) ** 2
+    for (let dx = 0; dx < w; dx++) {
+      let weight_x = ((dx - w_2) / w_2) ** 2
+      let weight = (1 - max(weight_x, weight_y)) * 5
+      weights[i] = weight
+      i++
+    }
+  }
+  h_weights[h] = weights
+  return weights
+}
+
 export function occlude_rect(
   imageData: ImageData,
+  occlusion_weights: number[],
   x: number,
   y: number,
   w: number,
@@ -75,11 +104,10 @@ export function occlude_rect(
     offset + imageData.width * imageData.height * 4,
   )
   let backup_offset = 0
+  let weight_offset = 0
   for (let dy = 0; dy < h; dy++) {
-    let weight_y = abs(dy - h / 2) / (h / 2)
     for (let dx = 0; dx < w; dx++) {
-      let weight_x = abs(dx - w / 2) / (w / 2)
-      let weight = 1 - max(weight_x, weight_y) ** 2
+      let weight = occlusion_weights[weight_offset]
       for (let i = 0; i < 3; i++) {
         let value = imageData.data[offset + i]
         backup[backup_offset + i] = value
@@ -89,6 +117,7 @@ export function occlude_rect(
       }
       offset += 4
       backup_offset += 4
+      weight_offset++
     }
     offset = offset - w * 4 + imageData.width * 4
   }
@@ -166,7 +195,7 @@ export async function build_heatmap(args: {
   }
 
   async function tick(x: number, y: number, w: number, h: number) {
-    let backup = occlude_rect(image_data, x, y, w, h)
+    let backup = occlude_rect(image_data, occlusion_weights, x, y, w, h)
     context.putImageData(image_data, 0, 0)
     let score = await args.calc_score(heatmap_context)
     heatmap_scores.push({ x, y, w, h, score })
@@ -214,6 +243,7 @@ export async function build_heatmap(args: {
 
   let w = ceil(args.max_grid_height || canvas.width / 2)
   let h = ceil(args.max_grid_width || canvas.height / 2)
+  let occlusion_weights = get_occlusion_weights(w, h)
   // await loop_slide(w, h)
   // draw_heatmap()
   for (let i = 0; i < 100; i++) {
