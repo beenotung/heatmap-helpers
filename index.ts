@@ -254,6 +254,7 @@ export async function build_heatmap(args: {
     await sleep(1)
     w = ceil(w * 0.9)
     h = ceil(h * 0.9)
+    occlusion_weights = get_occlusion_weights(w, h)
   }
 }
 
