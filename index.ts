@@ -239,7 +239,7 @@ export async function build_heatmap(args: {
       offset += offset_by_line
     }
     heatmap_buffer_context.putImageData(heatmap_buffer_image_data, 0, 0)
-    heatmap_context.drawImage(heatmap_buffer_canvas, x, y)
+    heatmap_context.drawImage(heatmap_buffer_canvas, x, y, w, h)
   }
 
   async function tick(x: number, y: number, w: number, h: number) {
