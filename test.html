@@ -17,7 +17,10 @@
     <img src="singer.jpg" id="image" />
     <div style="position: relative">
       <canvas id="image_canvas"></canvas>
-      <canvas id="heatmap_canvas" style="position: absolute; inset: 0"></canvas>
+      <canvas
+        id="heatmap_canvas"
+        style="position: absolute; inset: 0; opacity: 0.5"
+      ></canvas>
     </div>
     <script src="bundle.js"></script>
     <script>
@@ -35,20 +38,24 @@
         build_heatmap({
           image_canvas,
           heatmap_canvas,
+          // slide_ratio: 0.3,
           slide_ratio: 0.8,
+          // slide_ratio: 1,
           // max_grid_height: 100,
           // max_grid_width: 100,
-          calc_score: () => {
-            let r = Math.random()
-            let chance = 0.01
-            let gap = 0.05
-            if (r < chance) {
-              return Math.random() * gap
+          min_grid_height: 20,
+          min_grid_width: 20,
+          calc_score() {
+            let delta_change = Math.random() * 2 - 1
+            let score = (delta_change + 1) / 2
+            return score
+          },
+          should_zoom(score) {
+            let gap = 0.8
+            if (gap > 0.5) {
+              gap = 1 - gap
             }
-            if (r > 1 - chance) {
-              return 1 - Math.random() * gap
-            }
-            return 0.5 + (Math.random() * 2 - 1) * gap
+            return score <= gap || score >= 1 - gap
           },
         })
       }

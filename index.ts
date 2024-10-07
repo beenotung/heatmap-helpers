@@ -175,10 +175,22 @@ export async function build_heatmap(args: {
   max_grid_height?: number
   /** @description default `ceil(canvas.width * 0.5)` */
   max_grid_width?: number
-  /** @returns 0..1 */
+  /** @description default `5` */
+  min_grid_height?: number
+  /** @description default `5` */
+  min_grid_width?: number
+  /**
+   * @returns `0..1`
+   * */
   calc_score: (context: HeatmapContext) => number | Promise<number>
+  should_zoom: (score: number) => boolean
 }) {
-  let slideRatio = args.slide_ratio ?? 0.5
+  let { calc_score, should_zoom } = args
+
+  let slide_ratio = args.slide_ratio || 0.5
+
+  let min_grid_width = args.min_grid_width || 5
+  let min_grid_height = args.min_grid_height || 5
 
   let image_canvas = args.image_canvas
   let image_context = image_canvas.getContext('2d')!
@@ -208,70 +220,104 @@ export async function build_heatmap(args: {
     image_data,
   }
 
-  let heatmap_scores: {
-    x: number
-    y: number
-    w: number
-    h: number
-    score: number
-  }[] = []
+  async function loop_region(
+    left: number,
+    top: number,
+    width: number,
+    height: number,
+    w: number,
+    h: number,
+  ) {
+    let occlusion_weights = get_occlusion_weights(w, h)
+    heatmap_buffer_canvas.width = w
+    heatmap_buffer_canvas.height = h
+    let heatmap_buffer_image_data = heatmap_buffer_context.getImageData(
+      0,
+      0,
+      w,
+      h,
+    )
 
-  console.log(heatmap_values)
-
-  function add_heatmap_sample(sample: (typeof heatmap_scores)[number]) {
-    heatmap_scores.push(sample)
-    let { x, y, w, h, score } = sample
-    let offset = 0
-    let offset_by_line = -w * 4 + heatmap_buffer_image_data.width * 4
-    let i = 0
-    for (let dy = 0; dy < h; dy++) {
-      for (let dx = 0; dx < w; dx++) {
-        let weight = occlusion_weights[i]
-        let value = round(score * 255)
-        let color = heatmap_values[value]
-        heatmap_buffer_image_data.data[offset + 0] = color[0]
-        heatmap_buffer_image_data.data[offset + 1] = color[1]
-        heatmap_buffer_image_data.data[offset + 2] = color[2]
-        heatmap_buffer_image_data.data[offset + 3] = color[3] * weight
-        i++
-        offset += 4
+    function add_heatmap_sample(sample: {
+      x: number
+      y: number
+      w: number
+      h: number
+      score: number
+    }) {
+      let { x, y, w, h, score } = sample
+      let weights = get_occlusion_weights(w, h)
+      if (score) {
+        // score = 0.5
       }
-      offset += offset_by_line
+      let offset = 0
+      let offset_by_line = -w * 4 + heatmap_buffer_image_data.width * 4
+      let i = 0
+      for (let dy = 0; dy < h; dy++) {
+        for (let dx = 0; dx < w; dx++) {
+          let weight = weights[i]
+          let value = round(score * 255)
+          let color = heatmap_values[value]
+          heatmap_buffer_image_data.data[offset + 0] = color[0]
+          heatmap_buffer_image_data.data[offset + 1] = color[1]
+          heatmap_buffer_image_data.data[offset + 2] = color[2]
+          heatmap_buffer_image_data.data[offset + 3] = color[3] * weight
+          i++
+          offset += 4
+        }
+        offset += offset_by_line
+      }
+      heatmap_buffer_context.putImageData(heatmap_buffer_image_data, 0, 0)
+      heatmap_context.drawImage(heatmap_buffer_canvas, x, y, w, h)
     }
-    heatmap_buffer_context.putImageData(heatmap_buffer_image_data, 0, 0)
-    heatmap_context.drawImage(heatmap_buffer_canvas, x, y, w, h)
-  }
 
-  async function tick(x: number, y: number, w: number, h: number) {
-    let backup = occlude_rect(image_data, occlusion_weights, x, y, w, h)
-    image_context.putImageData(image_data, 0, 0)
-    let score = await args.calc_score(context)
-    add_heatmap_sample({ x, y, w, h, score })
-    await sleep(slide_interval)
-    restore_rect(image_data, backup, x, y, w, h)
-    image_context.putImageData(image_data, 0, 0)
-  }
+    async function tick(x: number, y: number) {
+      let backup = occlude_rect(image_data, occlusion_weights, x, y, w, h)
+      image_context.putImageData(image_data, 0, 0)
+      let score = await calc_score(context)
+      add_heatmap_sample({ x, y, w, h, score })
+      let new_width = w
+      let new_height = h
+      let new_w = ceil(new_width / 2)
+      let new_h = ceil(new_height / 2)
+      if (
+        new_w >= min_grid_width &&
+        new_h >= min_grid_height &&
+        new_w != w &&
+        new_h != h &&
+        should_zoom(score)
+      ) {
+        add_region([x, y, new_width, new_height, new_w, new_h])
+      }
+      await sleep(slide_interval)
+      restore_rect(image_data, backup, x, y, w, h)
+      image_context.putImageData(image_data, 0, 0)
+    }
 
-  // TODO fine-grain explore area of interest, instead of full range scanning
-  async function loop_slide(w: number, h: number) {
     async function loop_x(y: number) {
-      for (let x = 0; x + w <= image_canvas.width; ) {
-        await tick(x, y, w, h)
+      for (let x = left; x - left + w <= width; ) {
+        await tick(x, y)
         x += x_slide
-        if (x + w > image_canvas.width) {
-          x = image_canvas.width - w
-          await tick(x, y, w, h)
+        if (x - left == width) {
+          break
+        }
+        if (x - left + w > width) {
+          x = left + width - w
+          await tick(x, y)
           break
         }
       }
     }
-    let y_slide = calc_slide(image_canvas.height, h * slideRatio)
-    let x_slide = calc_slide(image_canvas.width, w * slideRatio)
-    for (let y = 0; y + h <= image_canvas.height; ) {
+    let y_slide = calc_slide(height, h * slide_ratio)
+    let x_slide = calc_slide(width, w * slide_ratio)
+    for (let y = top; y - top + h <= height; ) {
       await loop_x(y)
       y += y_slide
-      if (y + h > image_canvas.height) {
-        y = image_canvas.height - h
+      if (y - top == height) {
+        break
+      }
+      if (y - top + h > height) {
+        y = top + height - h
         await loop_x(y)
         break
       }
@@ -280,31 +326,35 @@ export async function build_heatmap(args: {
 
   let w = ceil(args.max_grid_height || image_canvas.width / 2)
   let h = ceil(args.max_grid_width || image_canvas.height / 2)
-  let occlusion_weights = get_occlusion_weights(w, h)
-  heatmap_buffer_canvas.width = w
-  heatmap_buffer_canvas.height = h
-  let heatmap_buffer_image_data = heatmap_buffer_context.getImageData(
-    0,
-    0,
-    w,
-    h,
-  )
-  // await loop_slide(w, h)
-  // draw_heatmap()
-  for (let i = 0; i < 100; i++) {
-    await loop_slide(w, h)
+
+  type Region = [
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    w: number,
+    h: number,
+  ]
+  let regions: Region[] = [
+    [0, 0, image_canvas.width, image_canvas.height, w, h],
+  ]
+
+  function add_region(region: Region) {
+    regions.push(region)
+  }
+
+  for (;;) {
+    let [region] = regions.splice(0, 1)
+    if (!region) break
+    let [x, y, width, height, w, h] = region
+    await loop_region(x, y, width, height, w, h)
     image_data = image_context.getImageData(
       0,
       0,
       image_canvas.width,
       image_canvas.height,
     )
-    heatmap_scores.length = 0
     await sleep(1)
-    w = ceil(w * 0.9)
-    h = ceil(h * 0.9)
-    occlusion_weights = get_occlusion_weights(w, h)
-    heatmap_buffer_image_data = heatmap_buffer_context.getImageData(0, 0, w, h)
   }
 }
 
