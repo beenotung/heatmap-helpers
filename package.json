@@ -27,6 +27,6 @@
     "dist"
   ],
   "dependencies": {
-    "heatmap-values": "^1.0.2"
+    "heatmap-values": "^1.0.3"
   }
 }
