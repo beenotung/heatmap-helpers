@@ -3,7 +3,7 @@ import { generate_heatmap_values, heatmap_schemes } from 'heatmap-values'
 let heatmap_values = generate_heatmap_values(
   heatmap_schemes.red_transparent_blue,
 )
-for (let i = 0; i < 255; i++) {
+for (let i = 0; i < 256; i++) {
   heatmap_values[i][3] *= 255
 }
 
