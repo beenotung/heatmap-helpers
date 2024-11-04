@@ -1,6 +1,6 @@
 {
   "name": "heatmap-helpers",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Helper functions to build heatmap visualization with canvas. Support dynamic grid size and zoom level based on custom scoring function.",
   "keywords": [
     "heatmap",
