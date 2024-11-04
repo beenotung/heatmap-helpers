@@ -7,7 +7,7 @@
     "bundle": "esbuild --bundle browser.ts --outfile=bundle.js",
     "test": "tsc --noEmit",
     "clean": "rimraf dist",
-    "build": "rimraf dist && tsc -p . && rimraf dist/tsconfig.tsbuildinfo",
+    "build": "rimraf dist && tsc -p . && rimraf dist/tsconfig.tsbuildinfo && npm run bundle",
     "tsc": "tsc -p ."
   },
   "keywords": [],
@@ -24,6 +24,7 @@
   },
   "types": "dist/index.d.ts",
   "files": [
+    "bundle.js",
     "dist"
   ],
   "dependencies": {
