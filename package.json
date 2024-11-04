@@ -1,7 +1,25 @@
 {
   "name": "heatmap-helpers",
   "version": "0.1.0",
+  "description": "Helper functions to build heatmap visualization with canvas. Support dynamic grid size and zoom level based on custom scoring function.",
+  "keywords": [
+    "heatmap",
+    "canvas",
+    "visualization",
+    "grid",
+    "zoom",
+    "typescript",
+    "browser",
+    "isomorphic"
+  ],
+  "author": "Beeno Tung <aabbcc1241@yahoo.com.hk> (https://beeno-tung.surge.sh)",
+  "license": "BSD-2-Clause",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "bundle.js",
+    "dist"
+  ],
   "scripts": {
     "dev": "npm run bundle -- --watch",
     "bundle": "esbuild --bundle browser.ts --outfile=bundle.js",
@@ -10,10 +28,9 @@
     "build": "rimraf dist && tsc -p . && rimraf dist/tsconfig.tsbuildinfo && npm run bundle",
     "tsc": "tsc -p ."
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "dependencies": {
+    "heatmap-values": "^1.0.3"
+  },
   "devDependencies": {
     "@types/node": "^22.5.4",
     "esbuild": "^0.23.1",
@@ -21,13 +38,5 @@
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.6.2"
-  },
-  "types": "dist/index.d.ts",
-  "files": [
-    "bundle.js",
-    "dist"
-  ],
-  "dependencies": {
-    "heatmap-values": "^1.0.3"
   }
 }

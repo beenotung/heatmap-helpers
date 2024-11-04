@@ -9,9 +9,9 @@ for (let i = 0; i < 256; i++) {
 
 let { abs, round, floor, ceil, max } = Math
 
-type Rect = { width: number; height: number }
+export type Rect = { width: number; height: number }
 
-type Color = [r: number, g: number, b: number]
+export type Color = [r: number, g: number, b: number]
 
 export function xy_to_offset(rect: Rect, x: number, y: number): number {
   return (y * rect.width + x) * 4
